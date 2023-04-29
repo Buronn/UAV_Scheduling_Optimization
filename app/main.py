@@ -200,3 +200,54 @@ for stoch_greedy_schedule,cost in res_stoch_greedy:
 
     cont += 1
     
+
+
+def tabu_search(start_schedule, uav_data, max_iterations=100, tabu_list_size=10):
+    current_schedule = start_schedule
+    current_evaluation = evaluate_solution(current_schedule, uav_data)
+
+    best_schedule = current_schedule
+    best_evaluation = current_evaluation
+
+    tabu_list = []
+    iteration = 0
+
+    while iteration < max_iterations:
+        neighbors = generate_neighbors(current_schedule)
+        best_neighbor = None
+        best_neighbor_evaluation = float('inf')
+
+        for neighbor in neighbors:
+            if (neighbor not in tabu_list) or (evaluate_solution(neighbor, uav_data) < best_evaluation):
+                neighbor_evaluation = evaluate_solution(neighbor, uav_data)
+                if neighbor_evaluation < best_neighbor_evaluation:
+                    best_neighbor = neighbor
+                    best_neighbor_evaluation = neighbor_evaluation
+
+        if best_neighbor is None:
+            break
+
+        if best_neighbor_evaluation < best_evaluation:
+            best_schedule = best_neighbor
+            best_evaluation = best_neighbor_evaluation
+
+        current_schedule = best_neighbor
+
+        if len(tabu_list) >= tabu_list_size:
+            tabu_list.pop(0)
+        tabu_list.append(current_schedule)
+
+        iteration += 1
+
+    return best_schedule
+
+# Tabu Search on Deterministic Greedy
+ts_det_greedy_schedule = tabu_search(det_greedy_schedule, uav_data)
+ts_det_greedy_cost = evaluate_solution(ts_det_greedy_schedule, uav_data)
+print("Tabu Search on Deterministic Greedy Schedule:", ts_det_greedy_schedule, "\n\tCost:", ts_det_greedy_cost)
+
+# Tabu Search on Stochastic Greedy
+for stoch_greedy_schedule, cost in res_stoch_greedy:
+    ts_stoch_greedy_schedule = tabu_search(stoch_greedy_schedule, uav_data)
+    ts_stoch_greedy_cost = evaluate_solution(ts_stoch_greedy_schedule, uav_data)
+    print("Tabu Search on Stochastic Greedy Schedule:", ts_stoch_greedy_schedule, "\n\tCost:", ts_stoch_greedy_cost)
