@@ -35,7 +35,7 @@ def deterministic_greedy(n_uavs, uav_data, separation_times):
 
         start_time = max(min_time, schedule[-1] + separation_times[i-1][i])
         if start_time <= max_time:
-            costo += 1
+            costo += abs(pref_time - start_time)
             schedule.append(start_time)
         else:
             schedule.append(pref_time)
@@ -60,7 +60,7 @@ def stochastic_greedy(n_uavs, uav_data, separation_times, seed=None):
         random_start_time = random.randint(min_time, max_time)
 
         if start_time <= max_time:
-            costo += 1
+            costo += abs(pref_time - random_start_time)
             schedule.append(random_start_time)
         else:
             schedule.append(start_time)
@@ -93,7 +93,7 @@ def evaluate_solution(schedule, uav_data):
         total_penalty += abs(pref_time - start_time)
     return total_penalty
 
-def generate_neighbors(schedule, min_delta=-5, max_delta=5):
+def generate_neighbors(schedule, min_delta=-10, max_delta=10):
     neighbors = []
     for i, start_time in enumerate(schedule):
         for delta in range(min_delta, max_delta+1):
@@ -162,7 +162,7 @@ start_time = time.time()
 hc_first_improvement_schedule = hill_climbing_first_improvement(
     det_greedy_schedule, uav_data)
 end_time = time.time()
-print("Time:", end_time - start_time)
+print("Time of hc_first-det_greedy:", end_time - start_time)
 
 # Hill Climbing Best Improvement
 
@@ -170,18 +170,33 @@ start_time = time.time()
 hc_best_improvement_schedule = hill_climbing_best_improvement(
     det_greedy_schedule, uav_data)
 end_time = time.time()
-print("Time:", end_time - start_time)
+print("Time of hc_best_improv-det_greedy:", end_time - start_time)
 
 
 if hc_first_improvement_schedule == hc_best_improvement_schedule:
     print("Hill Climbing First Improvement and Hill Climbing Best Improvement found the same solution")
 
+cont = 0
 for stoch_greedy_schedule,cost in res_stoch_greedy:
+
+    print(f'Iteration number {cont} \n')
     start_time = time.time()
     hc_best_improvement_schedule = hill_climbing_best_improvement(
         stoch_greedy_schedule, uav_data)
     end_time = time.time()
-    print("Time:", end_time - start_time)
+    print("\tTime of hc_best-stock_greed:", end_time - start_time)
+    print("\t\tSolution : ", hc_best_improvement_schedule)
 
-    if hc_best_improvement_schedule == stoch_greedy_schedule:
-        print("Hill Climbing First Improvement and Stochastic Greedy found the same solution")
+    
+    start_time = time.time()
+    hc_first_improvement_schedule = hill_climbing_best_improvement(
+        stoch_greedy_schedule, uav_data)
+    end_time = time.time()
+    print("\tTime of first_improv-stock_greedy:", end_time - start_time)
+    print("\t\tSolution : ", hc_first_improvement_schedule)
+
+    if hc_first_improvement_schedule == hc_best_improvement_schedule:
+        print("\tBoth found the same solution")
+
+    cont += 1
+    
