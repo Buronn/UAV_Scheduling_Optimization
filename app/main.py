@@ -28,17 +28,17 @@ def deterministic_greedy(n_uavs, uav_data, separation_times):
     schedule = []
     for i in range(n_uavs):
         min_time, pref_time, max_time = uav_data[i]
-
         if not schedule:
             schedule.append(pref_time)
             continue
 
         start_time = max(min_time, schedule[-1] + separation_times[i-1][i])
         if start_time <= max_time:
-            costo += abs(pref_time - start_time)
-            schedule.append(start_time)
-        else:
-            schedule.append(pref_time)
+            if start_time >= min_time:
+                costo += abs(pref_time - start_time)
+                schedule.append(start_time)
+            else:
+                schedule.append(max_time)
 
     return schedule, costo
 
@@ -47,20 +47,29 @@ def stochastic_greedy(n_uavs, uav_data, separation_times, seed=None):
     if seed is not None:
         random.seed(seed)
     costo = 0
-
     schedule = []
+    print("Indice \t Min \t Pref \t Max \t Start \t Sep \t Random")
     for i in range(n_uavs):
+        print(i, end=" ")
         min_time, pref_time, max_time = uav_data[i]
 
         if not schedule:
+            print("\t", min_time, "\t", pref_time, "\t", max_time, "\t", pref_time, "\t", pref_time, "\t", 0)
             schedule.append(pref_time)
             continue
 
         start_time = max(min_time, schedule[-1] + separation_times[i-1][i])
-        random_start_time = random.randint(min_time, max_time)
-
+        print("\t", min_time, "\t", pref_time, "\t", max_time, "\t", start_time, "\t", separation_times[i-1][i], end=" ")
+        if start_time < pref_time:
+            random_start_time = random.randint(start_time, pref_time)
+        else:
+            random_start_time = random.randint(start_time, max_time)
+        print("\t", random_start_time)
+        
         if start_time <= max_time:
+            
             costo += abs(pref_time - random_start_time)
+
             schedule.append(random_start_time)
         else:
             schedule.append(start_time)
@@ -68,7 +77,7 @@ def stochastic_greedy(n_uavs, uav_data, separation_times, seed=None):
     return schedule, costo
 
 
-input_file = "input/t2_Deimos.txt"
+input_file = f"input/t2_{input()}.txt"
 
 n_uavs, uav_data, separation_times = read_input_file(input_file)
 
@@ -156,49 +165,49 @@ def hill_climbing_best_improvement(start_schedule, uav_data):
     return current_schedule
 
 
-# Hill Climbing First Improvement
+# # Hill Climbing First Improvement
 
-start_time = time.time()
-hc_first_improvement_schedule = hill_climbing_first_improvement(
-    det_greedy_schedule, uav_data)
-end_time = time.time()
-print("Time of hc_first-det_greedy:", end_time - start_time)
+# start_time = time.time()
+# hc_first_improvement_schedule = hill_climbing_first_improvement(
+#     det_greedy_schedule, uav_data)
+# end_time = time.time()
+# print("Time of hc_first-det_greedy:", end_time - start_time)
 
-# Hill Climbing Best Improvement
+# # Hill Climbing Best Improvement
 
-start_time = time.time()
-hc_best_improvement_schedule = hill_climbing_best_improvement(
-    det_greedy_schedule, uav_data)
-end_time = time.time()
-print("Time of hc_best_improv-det_greedy:", end_time - start_time)
+# start_time = time.time()
+# hc_best_improvement_schedule = hill_climbing_best_improvement(
+#     det_greedy_schedule, uav_data)
+# end_time = time.time()
+# print("Time of hc_best_improv-det_greedy:", end_time - start_time)
 
 
-if hc_first_improvement_schedule == hc_best_improvement_schedule:
-    print("Hill Climbing First Improvement and Hill Climbing Best Improvement found the same solution")
+# if hc_first_improvement_schedule == hc_best_improvement_schedule:
+#     print("Hill Climbing First Improvement and Hill Climbing Best Improvement found the same solution")
 
-cont = 0
-for stoch_greedy_schedule,cost in res_stoch_greedy:
+# cont = 0
+# for stoch_greedy_schedule,cost in res_stoch_greedy:
 
-    print(f'Iteration number {cont} \n')
-    start_time = time.time()
-    hc_best_improvement_schedule = hill_climbing_best_improvement(
-        stoch_greedy_schedule, uav_data)
-    end_time = time.time()
-    print("\tTime of hc_best-stock_greed:", end_time - start_time)
-    print("\t\tSolution : ", hc_best_improvement_schedule)
+#     print(f'Iteration number {cont} \n')
+#     start_time = time.time()
+#     hc_best_improvement_schedule = hill_climbing_best_improvement(
+#         stoch_greedy_schedule, uav_data)
+#     end_time = time.time()
+#     print("\tTime of hc_best-stock_greed:", end_time - start_time)
+#     print("\t\tSolution : ", hc_best_improvement_schedule)
 
     
-    start_time = time.time()
-    hc_first_improvement_schedule = hill_climbing_best_improvement(
-        stoch_greedy_schedule, uav_data)
-    end_time = time.time()
-    print("\tTime of first_improv-stock_greedy:", end_time - start_time)
-    print("\t\tSolution : ", hc_first_improvement_schedule)
+#     start_time = time.time()
+#     hc_first_improvement_schedule = hill_climbing_best_improvement(
+#         stoch_greedy_schedule, uav_data)
+#     end_time = time.time()
+#     print("\tTime of first_improv-stock_greedy:", end_time - start_time)
+#     print("\t\tSolution : ", hc_first_improvement_schedule)
 
-    if hc_first_improvement_schedule == hc_best_improvement_schedule:
-        print("\tBoth found the same solution")
+#     if hc_first_improvement_schedule == hc_best_improvement_schedule:
+#         print("\tBoth found the same solution")
 
-    cont += 1
+#     cont += 1
     
 
 
@@ -241,13 +250,13 @@ def tabu_search(start_schedule, uav_data, max_iterations=100, tabu_list_size=10)
 
     return best_schedule
 
-# Tabu Search on Deterministic Greedy
-ts_det_greedy_schedule = tabu_search(det_greedy_schedule, uav_data)
-ts_det_greedy_cost = evaluate_solution(ts_det_greedy_schedule, uav_data)
-print("Tabu Search on Deterministic Greedy Schedule:", ts_det_greedy_schedule, "\n\tCost:", ts_det_greedy_cost)
+# # Tabu Search on Deterministic Greedy
+# ts_det_greedy_schedule = tabu_search(det_greedy_schedule, uav_data)
+# ts_det_greedy_cost = evaluate_solution(ts_det_greedy_schedule, uav_data)
+# print("Tabu Search on Deterministic Greedy Schedule:", ts_det_greedy_schedule, "\n\tCost:", ts_det_greedy_cost)
 
-# Tabu Search on Stochastic Greedy
-for stoch_greedy_schedule, cost in res_stoch_greedy:
-    ts_stoch_greedy_schedule = tabu_search(stoch_greedy_schedule, uav_data)
-    ts_stoch_greedy_cost = evaluate_solution(ts_stoch_greedy_schedule, uav_data)
-    print("Tabu Search on Stochastic Greedy Schedule:", ts_stoch_greedy_schedule, "\n\tCost:", ts_stoch_greedy_cost)
+# # Tabu Search on Stochastic Greedy
+# for stoch_greedy_schedule, cost in res_stoch_greedy:
+#     ts_stoch_greedy_schedule = tabu_search(stoch_greedy_schedule, uav_data)
+#     ts_stoch_greedy_cost = evaluate_solution(ts_stoch_greedy_schedule, uav_data)
+#     print("Tabu Search on Stochastic Greedy Schedule:", ts_stoch_greedy_schedule, "\n\tCost:", ts_stoch_greedy_cost)
