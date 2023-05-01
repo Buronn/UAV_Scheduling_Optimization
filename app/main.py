@@ -71,7 +71,7 @@ def greedy_stochastic(vehicles, adjacency_matrix, iterations=100):
         total_cost += best_diff
 
     return schedule, total_cost
-    
+
 def stochastic_greedy(n_uavs, uav_data, separation_times, seed=None):
     if seed is not None:
         random.seed(seed)
@@ -101,16 +101,30 @@ def stochastic_greedy(n_uavs, uav_data, separation_times, seed=None):
     return schedule, costo
 
 import os
-print("Choose input file:")
-files = []
-for file in os.listdir("input"):
-    if file.endswith(".txt"):
-        files.append(file)
-        print(f"\t {len(files)} - {file}")
 
-input_file = files[int(input())-1]
+from prompt_toolkit import prompt
+from prompt_toolkit.completion import WordCompleter
 
-n_uavs, uav_data, separation_times = read_input_file("input/"+input_file)
+# Obtener todos los nombres de archivo que terminan en .txt en el directorio actual
+archivos_txt = [filename for filename in os.listdir('input/') if filename.endswith('.txt')]
+
+# Crear un completer para el menú desplegable
+completer = WordCompleter(archivos_txt)
+
+# Mostrar el menú desplegable y obtener la selección del usuario
+opcion = prompt("Seleccione un archivo: ", completer=completer)
+
+# Realizar una acción basada en la selección del usuario
+if opcion not in archivos_txt:
+    print("Opción inválida.")
+else:
+    nombre_archivo = opcion
+    print(f"Ha seleccionado el archivo '{nombre_archivo}'.")
+    # Realizar la acción deseada con el archivo seleccionado
+    # por ejemplo, puedes abrirlo con la función open() de Python
+input_file = f"input/{nombre_archivo}"
+n_uavs, uav_data, separation_times = read_input_file(input_file)
+
 
 det_greedy_schedule, det_cost = deterministic_greedy(
     n_uavs, uav_data, separation_times)
