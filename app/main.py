@@ -12,7 +12,7 @@ def read_input_file(filename):
         for i in range(n_uavs):
             uav_line = f.readline()
             min_time, pref_time, max_time = map(int, uav_line.split())
-            uav_data.append((min_time, pref_time, max_time))
+            uav_data.append((min_time, pref_time, max_time, i))
 
             separation_row = []
             while len(separation_row) < n_uavs:
@@ -27,18 +27,18 @@ def deterministic_greedy(n_uavs, uav_data, separation_times):
     costo = 0
     schedule = []
     for i in range(n_uavs):
-        min_time, pref_time, max_time = uav_data[i]
+        min_time, pref_time, max_time, id = uav_data[i]
         if not schedule:
-            schedule.append(pref_time)
+            schedule.append((pref_time,id))
             continue
 
-        start_time = max(min_time, schedule[-1] + separation_times[i-1][i])
+        start_time = max(min_time, schedule[-1][0] + separation_times[i-1][i])
         if start_time <= max_time:
             if start_time >= min_time:
                 costo += abs(pref_time - start_time)
-                schedule.append(start_time)
+                schedule.append((start_time,id))
             else:
-                schedule.append(max_time)
+                schedule.append((max_time,id))
 
     return schedule, costo
 
@@ -48,38 +48,40 @@ def stochastic_greedy(n_uavs, uav_data, separation_times, seed=None):
         random.seed(seed)
     costo = 0
     schedule = []
-    print("Indice \t Min \t Pref \t Max \t Start \t Sep \t Random")
+    # Disorder uavs
+    uav_data = random.sample(uav_data, len(uav_data))
+    print(uav_data)
     for i in range(n_uavs):
-        print(i, end=" ")
-        min_time, pref_time, max_time = uav_data[i]
+        min_time, pref_time, max_time, id = uav_data[i]
 
         if not schedule:
-            print("\t", min_time, "\t", pref_time, "\t", max_time, "\t", pref_time, "\t", pref_time, "\t", 0)
-            schedule.append(pref_time)
+            schedule.append((pref_time,id))
             continue
 
-        start_time = max(min_time, schedule[-1] + separation_times[i-1][i])
-        print("\t", min_time, "\t", pref_time, "\t", max_time, "\t", start_time, "\t", separation_times[i-1][i], end=" ")
-        if start_time < pref_time:
-            random_start_time = random.randint(start_time, pref_time)
-        else:
-            random_start_time = random.randint(start_time, max_time)
-        print("\t", random_start_time)
+        start_time = max(min_time, schedule[-1][0] + separation_times[id-1][id])
         
         if start_time <= max_time:
             
-            costo += abs(pref_time - random_start_time)
+            costo += abs(pref_time - start_time)
 
-            schedule.append(random_start_time)
+            schedule.append((start_time,id))
         else:
-            schedule.append(start_time)
+            print("UAV", id, "not scheduled")
+            schedule.append((start_time,id))
 
     return schedule, costo
 
+import os
+print("Choose input file:")
+files = []
+for file in os.listdir("input"):
+    if file.endswith(".txt"):
+        files.append(file)
+        print(f"\t {len(files)} - {file}")
 
-input_file = f"input/t2_{input()}.txt"
+input_file = files[int(input())-1]
 
-n_uavs, uav_data, separation_times = read_input_file(input_file)
+n_uavs, uav_data, separation_times = read_input_file("input/"+input_file)
 
 det_greedy_schedule, det_cost = deterministic_greedy(
     n_uavs, uav_data, separation_times)
@@ -98,7 +100,7 @@ for i in seeds:
 def evaluate_solution(schedule, uav_data):
     total_penalty = 0
     for i, start_time in enumerate(schedule):
-        _, pref_time, _ = uav_data[i]
+        _, pref_time, _, _ = uav_data[i]
         total_penalty += abs(pref_time - start_time)
     return total_penalty
 
@@ -165,25 +167,25 @@ def hill_climbing_best_improvement(start_schedule, uav_data):
     return current_schedule
 
 
-# # Hill Climbing First Improvement
+# Hill Climbing First Improvement
 
-# start_time = time.time()
-# hc_first_improvement_schedule = hill_climbing_first_improvement(
-#     det_greedy_schedule, uav_data)
-# end_time = time.time()
-# print("Time of hc_first-det_greedy:", end_time - start_time)
+start_time = time.time()
+hc_first_improvement_schedule = hill_climbing_first_improvement(
+    det_greedy_schedule, uav_data)
+end_time = time.time()
+print("Time of hc_first-det_greedy:", end_time - start_time)
 
-# # Hill Climbing Best Improvement
+# Hill Climbing Best Improvement
 
-# start_time = time.time()
-# hc_best_improvement_schedule = hill_climbing_best_improvement(
-#     det_greedy_schedule, uav_data)
-# end_time = time.time()
-# print("Time of hc_best_improv-det_greedy:", end_time - start_time)
+start_time = time.time()
+hc_best_improvement_schedule = hill_climbing_best_improvement(
+    det_greedy_schedule, uav_data)
+end_time = time.time()
+print("Time of hc_best_improv-det_greedy:", end_time - start_time)
 
 
-# if hc_first_improvement_schedule == hc_best_improvement_schedule:
-#     print("Hill Climbing First Improvement and Hill Climbing Best Improvement found the same solution")
+if hc_first_improvement_schedule == hc_best_improvement_schedule:
+    print("Hill Climbing First Improvement and Hill Climbing Best Improvement found the same solution")
 
 # cont = 0
 # for stoch_greedy_schedule,cost in res_stoch_greedy:
