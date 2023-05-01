@@ -42,7 +42,36 @@ def deterministic_greedy(n_uavs, uav_data, separation_times):
 
     return schedule, costo
 
+def greedy_stochastic(vehicles, adjacency_matrix, iterations=100):
+    n = len(vehicles)
+    assigned = set()
+    schedule = []
+    total_cost = 0
 
+    for i in range(n):
+        vehicle = None
+        best_diff = float('inf')
+        best_time = None
+
+        # Find the best time for the current vehicle
+        for j in range(n):
+            if j not in assigned:
+                for _ in range(iterations):
+                    t = random.randint(vehicles[j][0], vehicles[j][2])
+                    diff = abs(t - vehicles[j][1])
+                    wait_time = max(adjacency_matrix[j][k] for k in assigned) if assigned else 0
+                    if diff + wait_time < best_diff:
+                        best_diff = diff + wait_time
+                        vehicle = j
+                        best_time = t
+
+        # Assign the vehicle to the best time
+        assigned.add(vehicle)
+        schedule.append((vehicle, best_time))
+        total_cost += best_diff
+
+    return schedule, total_cost
+    
 def stochastic_greedy(n_uavs, uav_data, separation_times, seed=None):
     if seed is not None:
         random.seed(seed)
