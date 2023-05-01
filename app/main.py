@@ -1,7 +1,8 @@
 import time
 import random
-
-
+import os
+from prompt_toolkit import prompt
+from prompt_toolkit.completion import WordCompleter
 def read_input_file(filename):
     with open(filename, 'r') as f:
         n_uavs_line = f.readline()
@@ -22,7 +23,6 @@ def read_input_file(filename):
 
     return n_uavs, uav_data, separation_times
 
-
 def deterministic_greedy(n_uavs, uav_data, separation_times):
     costo = 0
     schedule = []
@@ -42,7 +42,9 @@ def deterministic_greedy(n_uavs, uav_data, separation_times):
 
     return schedule, costo
 
-def greedy_stochastic(vehicles, adjacency_matrix, iterations=100):
+def greedy_stochastic(vehicles, adjacency_matrix, iterations=100, seed=None):
+    if seed is not None:
+        random.seed(seed)
     n = len(vehicles)
     assigned = set()
     schedule = []
@@ -67,7 +69,7 @@ def greedy_stochastic(vehicles, adjacency_matrix, iterations=100):
 
         # Assign the vehicle to the best time
         assigned.add(vehicle)
-        schedule.append((vehicle, best_time))
+        schedule.append((best_time, vehicle))
         total_cost += best_diff
 
     return schedule, total_cost
@@ -100,28 +102,13 @@ def stochastic_greedy(n_uavs, uav_data, separation_times, seed=None):
 
     return schedule, costo
 
-import os
-
-from prompt_toolkit import prompt
-from prompt_toolkit.completion import WordCompleter
-
-# Obtener todos los nombres de archivo que terminan en .txt en el directorio actual
 archivos_txt = [filename for filename in os.listdir('input/') if filename.endswith('.txt')]
-
-# Crear un completer para el menú desplegable
 completer = WordCompleter(archivos_txt)
-
-# Mostrar el menú desplegable y obtener la selección del usuario
 opcion = prompt("Seleccione un archivo: ", completer=completer)
-
-# Realizar una acción basada en la selección del usuario
 if opcion not in archivos_txt:
-    print("Opción inválida.")
+    exit("El archivo seleccionado no existe.")
 else:
     nombre_archivo = opcion
-    print(f"Ha seleccionado el archivo '{nombre_archivo}'.")
-    # Realizar la acción deseada con el archivo seleccionado
-    # por ejemplo, puedes abrirlo con la función open() de Python
 input_file = f"input/{nombre_archivo}"
 n_uavs, uav_data, separation_times = read_input_file(input_file)
 
@@ -140,168 +127,144 @@ for i in seeds:
           stoch_greedy_schedule, "\n \t Costo", stoch_cost)
     res_stoch_greedy.append((stoch_greedy_schedule, stoch_cost))
 
-def evaluate_solution(schedule, uav_data):
-    total_penalty = 0
-    for i, start_time in enumerate(schedule):
-        _, pref_time, _, _ = uav_data[i]
-        total_penalty += abs(pref_time - start_time)
-    return total_penalty
+def get_solution_cost(solution, uav_data, separation_times):
+    cost = 0
+    for i in range(len(solution) - 1):
+        cost += abs(uav_data[solution[i][1]][1] - solution[i][0])
+        cost += max(0, solution[i + 1][0] - (solution[i][0] + separation_times[solution[i][1]][solution[i + 1][1]]))
+    cost += abs(uav_data[solution[-1][1]][1] - solution[-1][0])
+    return cost
 
-def generate_neighbors(schedule, min_delta=-10, max_delta=10):
+def generate_neighbors(solution):
     neighbors = []
-    for i, start_time in enumerate(schedule):
-        for delta in range(min_delta, max_delta+1):
-            if delta == 0:
-                continue
-            new_schedule = schedule[:]
-            new_schedule[i] = start_time + delta
-            neighbors.append(new_schedule)
+    for i in range(len(solution)):
+        for j in range(i + 1, len(solution)):
+            neighbor = solution.copy()
+            neighbor[i], neighbor[j] = neighbor[j], neighbor[i]
+            neighbors.append(neighbor)
     return neighbors
 
-
-def hill_climbing_first_improvement(start_schedule, uav_data):
-    current_schedule = start_schedule
-    current_evaluation = evaluate_solution(
-        current_schedule, uav_data)
-
-    while True:
+def hill_climbing_first_improvement(initial_solution, uav_data, separation_times, max_iterations=1000):
+    current_solution = initial_solution.copy()
+    current_cost = get_solution_cost(current_solution, uav_data, separation_times)
+    
+    for _ in range(max_iterations):
+        neighbors = generate_neighbors(current_solution)
         improvement_found = False
-        neighbors = generate_neighbors(current_schedule)
+        
         for neighbor in neighbors:
-            neighbor_evaluation = evaluate_solution(
-                neighbor, uav_data)
-            if neighbor_evaluation < current_evaluation:
-                current_schedule = neighbor
-                current_evaluation = neighbor_evaluation
+            neighbor_cost = get_solution_cost(neighbor, uav_data, separation_times)
+            
+            if neighbor_cost < current_cost:
+                current_solution = neighbor.copy()
+                current_cost = neighbor_cost
                 improvement_found = True
                 break
-
+        
         if not improvement_found:
             break
+            
+    return current_solution, current_cost
 
-    return current_schedule
-
-
-def hill_climbing_best_improvement(start_schedule, uav_data):
-    current_schedule = start_schedule
-    current_evaluation = evaluate_solution(
-        current_schedule, uav_data)
-
-    while True:
-        improvement_found = False
-        best_neighbor = None
-        best_evaluation = float('inf')
-
-        neighbors = generate_neighbors(current_schedule)
-        for neighbor in neighbors:
-            neighbor_evaluation = evaluate_solution(
-                neighbor, uav_data)
-            if neighbor_evaluation < best_evaluation:
-                best_neighbor = neighbor
-                best_evaluation = neighbor_evaluation
-                improvement_found = True
-
-        if improvement_found and best_evaluation < current_evaluation:
-            current_schedule = best_neighbor
-            current_evaluation = best_evaluation
-        else:
-            break
-
-    return current_schedule
-
-
-# Hill Climbing First Improvement
-
-start_time = time.time()
-hc_first_improvement_schedule = hill_climbing_first_improvement(
-    det_greedy_schedule, uav_data)
-end_time = time.time()
-print("Time of hc_first-det_greedy:", end_time - start_time)
-
-# Hill Climbing Best Improvement
-
-start_time = time.time()
-hc_best_improvement_schedule = hill_climbing_best_improvement(
-    det_greedy_schedule, uav_data)
-end_time = time.time()
-print("Time of hc_best_improv-det_greedy:", end_time - start_time)
-
-
-if hc_first_improvement_schedule == hc_best_improvement_schedule:
-    print("Hill Climbing First Improvement and Hill Climbing Best Improvement found the same solution")
-
-# cont = 0
-# for stoch_greedy_schedule,cost in res_stoch_greedy:
-
-#     print(f'Iteration number {cont} \n')
-#     start_time = time.time()
-#     hc_best_improvement_schedule = hill_climbing_best_improvement(
-#         stoch_greedy_schedule, uav_data)
-#     end_time = time.time()
-#     print("\tTime of hc_best-stock_greed:", end_time - start_time)
-#     print("\t\tSolution : ", hc_best_improvement_schedule)
-
+def hill_climbing_best_improvement(initial_solution, uav_data, separation_times, max_iterations=1000):
+    current_solution = initial_solution.copy()
+    current_cost = get_solution_cost(current_solution, uav_data, separation_times)
     
-#     start_time = time.time()
-#     hc_first_improvement_schedule = hill_climbing_best_improvement(
-#         stoch_greedy_schedule, uav_data)
-#     end_time = time.time()
-#     print("\tTime of first_improv-stock_greedy:", end_time - start_time)
-#     print("\t\tSolution : ", hc_first_improvement_schedule)
-
-#     if hc_first_improvement_schedule == hc_best_improvement_schedule:
-#         print("\tBoth found the same solution")
-
-#     cont += 1
-    
-
-
-def tabu_search(start_schedule, uav_data, max_iterations=100, tabu_list_size=10):
-    current_schedule = start_schedule
-    current_evaluation = evaluate_solution(current_schedule, uav_data)
-
-    best_schedule = current_schedule
-    best_evaluation = current_evaluation
-
-    tabu_list = []
-    iteration = 0
-
-    while iteration < max_iterations:
-        neighbors = generate_neighbors(current_schedule)
+    for _ in range(max_iterations):
+        neighbors = generate_neighbors(current_solution)
         best_neighbor = None
-        best_neighbor_evaluation = float('inf')
-
+        best_cost = current_cost
+        
         for neighbor in neighbors:
-            if (neighbor not in tabu_list) or (evaluate_solution(neighbor, uav_data) < best_evaluation):
-                neighbor_evaluation = evaluate_solution(neighbor, uav_data)
-                if neighbor_evaluation < best_neighbor_evaluation:
-                    best_neighbor = neighbor
-                    best_neighbor_evaluation = neighbor_evaluation
-
+            neighbor_cost = get_solution_cost(neighbor, uav_data, separation_times)
+            
+            if neighbor_cost < best_cost:
+                best_neighbor = neighbor.copy()
+                best_cost = neighbor_cost
+                
         if best_neighbor is None:
             break
+        
+        current_solution = best_neighbor
+        current_cost = best_cost
+            
+    return current_solution, current_cost
 
-        if best_neighbor_evaluation < best_evaluation:
-            best_schedule = best_neighbor
-            best_evaluation = best_neighbor_evaluation
+# Hill Climbing first improvement
+print("\nHill Climbing (First Improvement):")
+det_hc_first_schedule, det_hc_first_cost = hill_climbing_first_improvement(det_greedy_schedule, uav_data, separation_times)
+print("From Deterministic Greedy Schedule:",
+      det_hc_first_schedule, "\n \t Cost", det_hc_first_cost)
 
-        current_schedule = best_neighbor
+for idx, stoch_greedy_result in enumerate(res_stoch_greedy):
+    stoch_hc_first_schedule, stoch_hc_first_cost = hill_climbing_first_improvement(stoch_greedy_result[0], uav_data, separation_times)
+    print(f"From Stochastic Greedy Schedule (Seed {seeds[idx]}):",
+          stoch_hc_first_schedule, "\n \t Cost", stoch_hc_first_cost)
 
-        if len(tabu_list) >= tabu_list_size:
-            tabu_list.pop(0)
-        tabu_list.append(current_schedule)
+# Hill Climbing best improvement
+print("\nHill Climbing (Best Improvement):")
+det_hc_best_schedule, det_hc_best_cost = hill_climbing_best_improvement(det_greedy_schedule, uav_data, separation_times)
+print("From Deterministic Greedy Schedule:",
+      det_hc_best_schedule, "\n \t Cost", det_hc_best_cost)
 
-        iteration += 1
+for idx, stoch_greedy_result in enumerate(res_stoch_greedy):
+    stoch_hc_best_schedule, stoch_hc_best_cost = hill_climbing_best_improvement(stoch_greedy_result[0], uav_data, separation_times)
+    print(f"From Stochastic Greedy Schedule (Seed {seeds[idx]}):",
+          stoch_hc_best_schedule, "\n \t Cost", stoch_hc_best_cost)
+    
+def tabu_search(initial_solution, uav_data, separation_times, max_iterations=1000, tabu_size=5, aspiration_value=None):
+    best_solution = initial_solution.copy()
+    best_cost = get_solution_cost(initial_solution, uav_data, separation_times)
+    tabu_list = []
 
-    return best_schedule
+    current_solution = initial_solution.copy()
+    current_cost = best_cost
 
-# # Tabu Search on Deterministic Greedy
-# ts_det_greedy_schedule = tabu_search(det_greedy_schedule, uav_data)
-# ts_det_greedy_cost = evaluate_solution(ts_det_greedy_schedule, uav_data)
-# print("Tabu Search on Deterministic Greedy Schedule:", ts_det_greedy_schedule, "\n\tCost:", ts_det_greedy_cost)
+    for _ in range(max_iterations):
+        neighbors = generate_neighbors(current_solution)
+        best_neighbor = None
+        best_neighbor_cost = float("inf")
 
-# # Tabu Search on Stochastic Greedy
-# for stoch_greedy_schedule, cost in res_stoch_greedy:
-#     ts_stoch_greedy_schedule = tabu_search(stoch_greedy_schedule, uav_data)
-#     ts_stoch_greedy_cost = evaluate_solution(ts_stoch_greedy_schedule, uav_data)
-#     print("Tabu Search on Stochastic Greedy Schedule:", ts_stoch_greedy_schedule, "\n\tCost:", ts_stoch_greedy_cost)
+        for neighbor in neighbors:
+            neighbor_cost = get_solution_cost(neighbor, uav_data, separation_times)
+
+            if neighbor_cost < best_cost:
+                if aspiration_value and neighbor_cost < aspiration_value:
+                    best_neighbor = neighbor
+                    best_neighbor_cost = neighbor_cost
+                    break
+
+                if neighbor not in tabu_list:
+                    best_neighbor = neighbor
+                    best_neighbor_cost = neighbor_cost
+                    break
+
+            elif neighbor not in tabu_list and neighbor_cost < best_neighbor_cost:
+                best_neighbor = neighbor
+                best_neighbor_cost = neighbor_cost
+
+        if best_neighbor is not None:
+            current_solution = best_neighbor
+            current_cost = best_neighbor_cost
+
+            if current_cost < best_cost:
+                best_solution = current_solution
+                best_cost = current_cost
+
+            tabu_list.append(best_neighbor)
+            if len(tabu_list) > tabu_size:
+                tabu_list.pop(0)
+
+    return best_solution, best_cost
+
+
+# Tabu Search
+print("\nTabu Search:")
+det_tabu_schedule, det_tabu_cost = tabu_search(det_greedy_schedule, uav_data, separation_times)
+print("From Deterministic Greedy Schedule:",
+      det_tabu_schedule, "\n \t Cost", det_tabu_cost)
+
+for idx, stoch_greedy_result in enumerate(res_stoch_greedy):
+    stoch_tabu_schedule, stoch_tabu_cost = tabu_search(stoch_greedy_result[0], uav_data, separation_times)
+    print(f"From Stochastic Greedy Schedule (Seed {seeds[idx]}):",
+          stoch_tabu_schedule, "\n \t Cost", stoch_tabu_cost)
