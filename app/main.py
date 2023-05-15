@@ -33,19 +33,19 @@ def check_schedule(uav_data, separation_times, schedule):
     for i in range(len(schedule)):
         time, id = schedule[i]
         min_time, _, max_time, _ = uav_data[id]
-        print("\tUAV", id, "scheduled at", time)
-        print("\tTime window:", min_time, "-", max_time)
+        # print("\tUAV", id, "scheduled at", time)
+        # print("\tTime window:", min_time, "-", max_time)
         if time < min_time or time > max_time:
-            print("\tUAV", id, "scheduled at", time,
-                  "but its time window is", min_time, "-", max_time)
+            # print("\tUAV", id, "scheduled at", time,
+            #       "but its time window is", min_time, "-", max_time)
             return False
         if i > 0:
             prev_time, prev_id = schedule[i-1]
             if time < prev_time + separation_times[prev_id][id]:
-                print("\t separation_times[prev_id][id]",
-                      separation_times[prev_id][id])
-                print("\tUAV", id, "scheduled at", time,
-                      "but it is too close to UAV", prev_id)
+                # print("\t separation_times[prev_id][id]",
+                #       separation_times[prev_id][id])
+                # print("\tUAV", id, "scheduled at", time,
+                #       "but it is too close to UAV", prev_id)
                 return False
     return True
 
@@ -77,44 +77,43 @@ def deterministic_greedy(n_uavs, uav_data, separation_times):
 
     return schedule, costo
 
-
 def stochastic_greedy(n_uavs, uav_data, separation_times, seed=None):
+    if seed is not None:
+        random.seed(seed)
     costo = 0
     schedule = []
-    backjumped = set()
-
+    # Order uavs according to pref_time
     tmp_data = uav_data[:]
-
-    while tmp_data:
-        if seed is not None:
-            random.seed(seed)
-        # Select a UAV with probability proportional to inverse of its min_time and pref_time
-        weights = [1 / (min_time + pref_time + 1e-10) if id not in backjumped else 0 for min_time, pref_time, _, id in tmp_data]
-        total_weight = sum(weights)
-        probabilities = [weight / total_weight for weight in weights]
-        selected_index = random.choices(range(len(tmp_data)), probabilities)[0]
-        min_time, pref_time, max_time, id = tmp_data.pop(selected_index)
+    tmp_data.sort(key=lambda x: x[1])
+    # print("id\tmin\tpref\tmax\tchosen")
+    i = 0
+    while i < n_uavs:
+        min_time, pref_time, max_time, id = tmp_data[i]
+        # print(id,"\t", min_time,"\t", pref_time,"\t", max_time, end="\t")
         if not schedule:
             schedule.append((pref_time, id))
+            # print(pref_time)
+            i += 1
             continue
-
+        
         start_time = max(min_time, schedule[-1][0] + separation_times[schedule[-1][1]][id])
-
+        
         if start_time <= max_time:
-            costo += abs(pref_time - start_time)
-            schedule.append((start_time, id))
-            backjumped.clear()  # Clear backjumped set when a UAV is successfully scheduled
+            weights = []
+            for j in range(start_time, max_time+1):
+                weights.append(1 / (abs(pref_time - j) + 1e-10))
+            total_weight = sum(weights)
+            probabilities = [weight / total_weight for weight in weights]
+            chosen_time = random.choices(range(start_time, max_time+1), probabilities)[0]
+            # print(chosen_time)
+            costo += abs(pref_time - chosen_time)
+            schedule.append((chosen_time, id))
+            i += 1
         else:
-            if schedule:
-                # Backjump
-                deleted = schedule.pop()
-                costo -= abs((uav_data[deleted[1]])[1] - deleted[0]) # Devolvemos el costo de la programación anterior
-                tmp_data.append((uav_data[deleted[1]])) # Devolvemos el UAV anterior a la lista tmp
-                tmp_data.append((uav_data[id])) # Devolvemos el UAV actual a la lista tmp
-                backjumped.add(deleted[1])  # Add the deleted UAV to the backjumped set
-                seed = random.randint(0, 1000000)
-
-                continue
+            schedule.append((max_time, id))
+            costo += 2 * abs(pref_time - max_time)
+            # print(max_time, "PENALTY")
+            i += 1
 
     return schedule, costo
 
@@ -138,8 +137,8 @@ print("\tChecking if the schedule is valid...")
 print("\tSchedule is valid:", check_schedule(
     uav_data, separation_times, det_greedy_schedule))
 
-seeds = [42]
-#seeds = [42, 45, 47, 48, 51]
+
+seeds = [42, 45, 47, 48, 51]
 
 res_stoch_greedy = []
 print("\n \t \t --------------------------- Stochastic Greedy --------------------------- \n")
@@ -149,10 +148,10 @@ for i in seeds:
     print(f"Stochastic Greedy Schedule (Seed {i}):",
           stoch_greedy_schedule, "\n \t Costo", stoch_cost)
 
-    print("\n")
     print("\tChecking if the schedule is valid...")
     print("\tSchedule is valid:", check_schedule(
         uav_data, separation_times, stoch_greedy_schedule))
+    print("\n\n")
 
     res_stoch_greedy.append((stoch_greedy_schedule, stoch_cost))
 
