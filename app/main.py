@@ -1,10 +1,6 @@
-import time
 import random
 import os
-import sys
-import numpy as np
-import bisect
-import itertools
+import time
 from prompt_toolkit import prompt
 from prompt_toolkit.completion import WordCompleter
 
@@ -56,7 +52,7 @@ def deterministic_greedy(n_uavs, uav_data, separation_times):
     schedule = []
     # Order uavs according to pref_time
     tmp_data = uav_data[:]
-    tmp_data.sort(key=lambda x: x[0])
+    tmp_data.sort(key=lambda x: x[1])
     # print("separation_times", separation_times)
     # print("ID\tMin\tPref\tMax")
 
@@ -129,21 +125,24 @@ else:
 input_file = f"input/{nombre_archivo}"
 n_uavs, uav_data, separation_times = read_input_file(input_file)
 
-
+t0 = time.time()
 det_greedy_schedule, det_cost = deterministic_greedy(
     n_uavs, uav_data, separation_times)
-print("Algoritmo utilizado\t\t\t\t\t\tCosto\tFactible")
+t1 = time.time()
+print("Algoritmo utilizado\t\t\t\t\t\tCosto\tFactible\tTiempo (ms)")
 print("Deterministic Greedy Schedule\t\t\t\t\t", det_cost, "\t", check_schedule(
-    uav_data, separation_times, det_greedy_schedule))
+    uav_data, separation_times, det_greedy_schedule), "\t\t", (t1-t0)*1000)
 
 seeds = [42, 45, 47, 48, 51]
 
 res_stoch_greedy = []
 for i in seeds:
+    t0 = time.time()
     stoch_greedy_schedule, stoch_cost = stochastic_greedy(
         n_uavs, uav_data, separation_times, seed=i)
+    t1 = time.time()
     print(f"Stochastic Greedy Schedule (Seed {i})\t\t\t\t", stoch_cost, "\t", check_schedule(
-        uav_data, separation_times, stoch_greedy_schedule))
+        uav_data, separation_times, stoch_greedy_schedule), "\t\t", (t1-t0)*1000)
 
     res_stoch_greedy.append((stoch_greedy_schedule, stoch_cost))
 
@@ -230,33 +229,41 @@ res_first_choice_hill_climbing = []
 res_steepest_ascent_hill_climbing = []
 
 i = 0
+t0 = time.time()
 first_choice_schedule, first_choice_cost = first_choice_hill_climbing(
     n_uavs, uav_data, separation_times, det_greedy_schedule, det_cost)
+t1 = time.time()
 print("Hill Climbing first choice (Deterministic Greedy)\t\t", first_choice_cost, "\t", check_schedule(
-    uav_data, separation_times, first_choice_schedule))
+    uav_data, separation_times, first_choice_schedule), "\t\t", (t1-t0)*1000)
 res_first_choice_hill_climbing.append((first_choice_schedule, first_choice_cost))
 for seed in seeds:
+    t0 = time.time()
     first_choice_schedule, first_choice_cost = first_choice_hill_climbing(
         n_uavs, uav_data, separation_times, res_stoch_greedy[i][0], res_stoch_greedy[i][1])
+    t1 = time.time()
     print(f"Hill Climbing first choice (Stochastic Greedy, Seed {seed})\t\t", first_choice_cost, "\t", check_schedule(
-        uav_data, separation_times, first_choice_schedule))
+        uav_data, separation_times, first_choice_schedule), "\t\t", (t1-t0)*1000)
 
     res_first_choice_hill_climbing.append(
         (first_choice_schedule, first_choice_cost))
     i += 1
 
+t0 = time.time()
 better_choice_schedule, better_choice_cost = steepest_ascent_hill_climbing(
     n_uavs, uav_data, separation_times, det_greedy_schedule, det_cost)
+t1 = time.time()
 print("Hill Climbing steepest ascent (Deterministic Greedy)\t\t", better_choice_cost, "\t", check_schedule(
-    uav_data, separation_times, better_choice_schedule))
+    uav_data, separation_times, better_choice_schedule), "\t\t", (t1-t0)*1000)
 res_steepest_ascent_hill_climbing.append(
     (better_choice_schedule, better_choice_cost))
 i = 0
 for seed in seeds:
+    t0 = time.time()
     steepest_ascent_schedule, steepest_ascent_cost = steepest_ascent_hill_climbing(
         n_uavs, uav_data, separation_times, res_stoch_greedy[i][0], res_stoch_greedy[i][1])
+    t1 = time.time()
     print(f"Hill Climbing steepest ascent (Stochastic Greedy, Seed {seed})\t", steepest_ascent_cost, "\t", check_schedule(
-        uav_data, separation_times, steepest_ascent_schedule))
+        uav_data, separation_times, steepest_ascent_schedule), "\t\t", (t1-t0)*1000)
 
     res_steepest_ascent_hill_climbing.append(
         (steepest_ascent_schedule, steepest_ascent_cost))
@@ -301,16 +308,18 @@ def tabu_search(n_uavs, uav_data, separation_times, initial_schedule, initial_co
 
     return best_schedule, best_cost
 
+t0 = time.time()
 tabu_schedule, tabu_cost = tabu_search(
     n_uavs, uav_data, separation_times, det_greedy_schedule, det_cost, 100, 10)
+t1 = time.time()
 print("Tabu Search (Deterministic Greedy)\t\t\t\t", tabu_cost, "\t", check_schedule(
-    uav_data, separation_times, tabu_schedule))
+    uav_data, separation_times, tabu_schedule), "\t\t", (t1-t0)*1000)
 i = 0
 for seed in seeds:
+    t0 = time.time()
     tabu_schedule, tabu_cost = tabu_search(
         n_uavs, uav_data, separation_times, res_stoch_greedy[i][0], res_stoch_greedy[i][1], 100, 10)
+    t1 = time.time()
     print(f"Tabu Search (Stochastic Greedy, Seed {seed})\t\t\t", tabu_cost, "\t", check_schedule(
-        uav_data, separation_times, tabu_schedule))
-    
-
+        uav_data, separation_times, tabu_schedule), "\t\t", (t1-t0)*1000)
     i += 1
